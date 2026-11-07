@@ -1,59 +1,92 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useState } from "react";
+import clsx from "clsx";
 import { site } from "@/content/site";
-import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
-import { LocalTime } from "@/components/ui/LocalTime";
-import { RollText } from "@/components/ui/RollLink";
 import { ScrollLink } from "@/components/ui/ScrollLink";
+import { ArrowUpRight } from "@/components/ui/kit";
+
+const LINKS = [{ label: "Home", href: "#top" }, ...site.nav];
 
 export function Header() {
-  const ref = useRef<HTMLElement>(null);
+  const [active, setActive] = useState("#top");
+  const [open, setOpen] = useState(false);
 
-  useGSAP(
-    () => {
-      gsap.from(ref.current!.children, { y: -30, opacity: 0, stagger: 0.08, delay: 1.2 });
-
-      // hide on scroll down, show on scroll up
-      const show = gsap
-        .from(ref.current, { yPercent: -110, paused: true, duration: 0.6, ease: "power3.out" })
-        .progress(1);
-      ScrollTrigger.create({
-        start: "top -120",
-        onUpdate: (self) => (self.direction === -1 ? show.play() : show.reverse()),
-      });
-    },
-    { scope: ref },
-  );
+  // highlight whichever section is under the top third of the viewport
+  useEffect(() => {
+    const targets = LINKS.map((l) => document.querySelector(l.href)).filter(Boolean) as Element[];
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) if (e.isIntersecting) setActive(`#${e.target.id}`);
+      },
+      { rootMargin: "-30% 0px -65% 0px" },
+    );
+    targets.forEach((t) => io.observe(t));
+    return () => io.disconnect();
+  }, []);
 
   return (
-    <header
-      ref={ref}
-      className="fixed inset-x-0 top-0 z-50 flex items-start justify-between px-gutter py-5 text-paper mix-blend-difference"
-    >
-      <ScrollLink href="#" className="text-lg font-semibold tracking-tight" data-cursor="Top">
-        {site.name}
-        <sup className="ml-0.5 font-mono text-[10px] font-normal">©</sup>
-      </ScrollLink>
+    <header className="fixed inset-x-0 top-0 z-50">
+      <div className="container-x flex items-start justify-between">
+        <nav aria-label="Primary" className="hidden md:block">
+          <ul className="mono-label flex border border-t-0 border-ink bg-white text-[0.8125rem]">
+            {LINKS.map((l) => {
+              const on = active === l.href;
+              return (
+                <li key={l.href} className="border-r border-ink last:border-r-0">
+                  <ScrollLink
+                    href={l.href}
+                    className={clsx(
+                      "block px-2 transition-colors duration-200",
+                      on ? "bg-blue py-2 text-white" : "py-1.5 text-ink hover:bg-ink hover:text-white",
+                    )}
+                    aria-current={on ? "true" : undefined}
+                  >
+                    {on ? `<${l.label}>` : l.label}
+                  </ScrollLink>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      <div className="hidden font-mono text-[11px] uppercase leading-tight tracking-wider md:block">
-        <p>{site.location}</p>
-        <p className="text-paper/60">
-          <LocalTime timeZone={site.timezone} /> {site.timezoneLabel}
-        </p>
+        {/* mobile: logo tile + menu toggle */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+          className="mono-label border border-t-0 border-ink bg-white px-3 py-2 text-ink md:hidden"
+        >
+          {open ? "[ Close ]" : "[ Menu ]"}
+        </button>
+
+        <a
+          href={`mailto:${site.email}`}
+          className="group mono-label flex items-center gap-3 border border-t-0 border-ink bg-white px-4 py-2.5 text-[0.9375rem] font-medium text-ink transition-colors hover:bg-blue hover:text-white"
+        >
+          <ArrowUpRight className="transition-transform duration-300 group-hover:rotate-45" />
+          Contact us
+        </a>
       </div>
 
-      <nav aria-label="Primary">
-        <ul className="flex gap-6 text-sm">
-          {site.nav.map((item) => (
-            <li key={item.href}>
-              <ScrollLink href={item.href}>
-                <RollText>{item.label}</RollText>
-              </ScrollLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {open && (
+        <div id="mobile-menu" className="container-x md:hidden">
+          <ul className="mono-label mt-2 border border-ink bg-white">
+            {LINKS.map((l) => (
+              <li key={l.href} className="border-b border-line last:border-b-0">
+                <ScrollLink
+                  href={l.href}
+                  onClick={() => setOpen(false)}
+                  className={clsx("block px-4 py-3", active === l.href ? "bg-blue text-white" : "text-ink")}
+                >
+                  {l.label}
+                </ScrollLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </header>
   );
 }
